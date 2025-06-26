@@ -1,0 +1,30 @@
+[package]
+name = "aria2c-browse"
+version = "0.1.0"
+edition = "2025"
+description = "A minimal Windows URL scheme handler for aria2c that reveals downloaded files and folders in Windows Explorer"
+license = "GPLv3"
+repository = "https://github.com/avitretiak/aria2c-browse"
+keywords = ["aria2c", "windows", "protocol-handler", "file-manager"]
+categories = ["command-line-utilities", "system"]
+
+[dependencies]
+
+[features]
+default = []
+test-utils = []
+
+[[bin]]
+name = "aria2c-browse"
+path = "src/main.rs"
+
+[lib]
+name = "aria2c_browse"
+path = "src/lib.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true 
