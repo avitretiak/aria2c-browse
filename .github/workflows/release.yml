@@ -14,6 +14,10 @@ on:
         type: string
         default: ''
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build-and-release:
     runs-on: windows-latest
@@ -21,6 +25,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
       
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
@@ -61,6 +67,16 @@ jobs:
     - name: Create ZIP archive
       run: |
         Compress-Archive -Path "release\*" -DestinationPath "aria2c-browse-${{ github.event.inputs.version }}-windows-x64.zip"
+        
+    - name: Create Git tag
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add Cargo.toml
+        git commit -m "Bump version to ${{ github.event.inputs.version }}" || exit 0
+        git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
+        git push origin HEAD:${{ github.ref }}
+        git push origin "v${{ github.event.inputs.version }}"
         
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
