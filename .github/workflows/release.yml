@@ -1,0 +1,76 @@
+name: Release Windows x64
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 0.1.1)'
+        required: true
+        type: string
+        default: '0.1.1'
+      release_notes:
+        description: 'Release notes'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: x86_64-pc-windows-msvc
+        
+    - name: Update version in Cargo.toml
+      run: |
+        $content = Get-Content Cargo.toml -Raw
+        $newVersion = "${{ github.event.inputs.version }}"
+        $content = $content -replace 'version = "([^"]*)"', "version = `"$newVersion`""
+        Set-Content Cargo.toml $content -NoNewline
+        Write-Host "Updated version to $newVersion"
+        
+    - name: Build release binary
+      run: |
+        cargo build --release --target x86_64-pc-windows-msvc
+        
+    - name: Create release directory
+      run: |
+        mkdir release
+        Copy-Item "target\x86_64-pc-windows-msvc\release\aria2c-browse.exe" "release\"
+        Copy-Item "register_handler.bat" "release\"
+        Copy-Item "README.md" "release\"
+        Copy-Item "LICENSE.md" "release\"
+        
+    - name: Create ZIP archive
+      run: |
+        Compress-Archive -Path "release\*" -DestinationPath "aria2c-browse-${{ github.event.inputs.version }}-windows-x64.zip"
+        
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ github.event.inputs.version }}
+        name: Release v${{ github.event.inputs.version }}
+        body: |
+          ## aria2c-browse v${{ github.event.inputs.version }}
+          
+          ${{ github.event.inputs.release_notes }}
+          
+          ### Downloads
+          - Windows x64: `aria2c-browse-${{ github.event.inputs.version }}-windows-x64.zip`
+          
+          ### Installation
+          1. Extract the ZIP file
+          2. Run `register_handler.bat` as administrator to register the URL scheme handler
+          3. Use `aria2c://` URLs to download files with aria2c
+        files: aria2c-browse-${{ github.event.inputs.version }}-windows-x64.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
