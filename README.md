@@ -3,7 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-stable-brightgreen.svg)](https://www.rust-lang.org)
 [![Windows](https://img.shields.io/badge/platform-Windows-blue.svg)](https://www.microsoft.com/windows)
-[![Build Status](https://github.com/avitretiak/aria2c-browse/workflows/Release/badge.svg)](https://github.com/avitretiak/aria2c-browse/actions)
+[![Release](https://github.com/avitretiak/aria2c-browse/actions/workflows/release.yml/badge.svg)](https://github.com/avitretiak/aria2c-browse/actions/workflows/release.yml)
 
 A minimal Windows URL scheme handler for aria2c that opens downloaded files and folders in Windows Explorer.
 Intended to be registered as a URL handler for `aria2://` URL schemes.
