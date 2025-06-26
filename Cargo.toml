@@ -1,6 +1,6 @@
 [package]
 name = "aria2c-browse"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "A minimal Windows URL scheme handler for aria2c that reveals downloaded files and folders in Windows Explorer"
 license = "GPLv3"
