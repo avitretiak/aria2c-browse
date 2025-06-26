@@ -1,15 +1,23 @@
-name: Release Windows x64
+name: Release
 
 on:
   workflow_dispatch:
     inputs:
+      mode:
+        description: 'Release mode'
+        required: true
+        type: choice
+        options:
+          - build
+          - publish
+        default: 'build'
       version:
-        description: 'Version number (e.g., 0.1.1)'
+        description: 'Version number (e.g., 1.0.1)'
         required: true
         type: string
-        default: '0.1.1'
-      release_notes:
-        description: 'Release notes'
+        default: '0.0.0-test'
+      description:
+        description: 'Release description (only used in publish mode)'
         required: false
         type: string
         default: ''
@@ -19,19 +27,21 @@ permissions:
   packages: write
 
 jobs:
-  build-and-release:
+  release:
     runs-on: windows-latest
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: 1
       
     - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
+      uses: actions-rs/toolchain@v1
       with:
-        targets: x86_64-pc-windows-msvc
+        toolchain: stable
+        target: x86_64-pc-windows-msvc
+        override: true
         
     - name: Cache dependencies
       uses: actions/cache@v3
@@ -44,41 +54,62 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
         
-    - name: Update version in Cargo.toml
+    - name: Build and package
       run: |
-        $content = Get-Content Cargo.toml -Raw
-        $newVersion = "${{ github.event.inputs.version }}"
-        $content = $content -replace 'version = "([^"]*)"', "version = `"$newVersion`""
-        Set-Content Cargo.toml $content -NoNewline
-        Write-Host "Updated version to $newVersion"
+        $mode = "${{ github.event.inputs.mode }}"
+        $version = "${{ github.event.inputs.version }}"
+        $description = "${{ github.event.inputs.description }}"
         
-    - name: Build release binary
-      run: |
+        if ($mode -eq "publish") {
+          Write-Host "🚀 Building and publishing version: $version"
+          Write-Host "📝 Description: $description"
+        } else {
+          Write-Host "🧪 Building test version: $version"
+        }
+        
+        # Update version in Cargo.toml
+        $content = Get-Content Cargo.toml -Raw
+        $content = $content -replace 'version = "([^"]*)"', "version = `"$version`""
+        Set-Content Cargo.toml $content -NoNewline
+        
+        # Build release binary
         cargo build --release --target x86_64-pc-windows-msvc
         
-    - name: Create release directory
-      run: |
-        mkdir release
-        Copy-Item "target\x86_64-pc-windows-msvc\release\aria2c-browse.exe" "release\"
-        Copy-Item "register_handler.bat" "release\"
-        Copy-Item "README.md" "release\"
-        Copy-Item "LICENSE.md" "release\"
+        # Create package
+        $packageName = if ($mode -eq "publish") { "aria2c-browse-$version-windows-x64.zip" } else { "aria2c-browse-$version-test.zip" }
+        New-Item -ItemType Directory -Force -Path release | Out-Null
+        Copy-Item "target\x86_64-pc-windows-msvc\release\aria2c-browse.exe", "register_handler.bat", "README.md", "LICENSE.md" -Destination "release\"
+        Compress-Archive -Path "release\*" -DestinationPath $packageName -Force
         
-    - name: Create ZIP archive
-      run: |
-        Compress-Archive -Path "release\*" -DestinationPath "aria2c-browse-${{ github.event.inputs.version }}-windows-x64.zip"
+        if ($mode -eq "publish") {
+          Write-Host "📦 Release package created: $packageName"
+        } else {
+          Write-Host "✅ Test build completed successfully!"
+          Write-Host "📦 Test package created: $packageName"
+        }
         
-    - name: Create Git tag
+    - name: Upload test artifact (build mode)
+      if: ${{ github.event.inputs.mode == 'build' }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-package
+        path: aria2c-browse-${{ github.event.inputs.version }}-test.zip
+        
+    - name: Create Git tag and release (publish mode)
+      if: ${{ github.event.inputs.mode == 'publish' }}
       run: |
+        $version = "${{ github.event.inputs.version }}"
+        
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add Cargo.toml
-        git commit -m "Bump version to ${{ github.event.inputs.version }}" || exit 0
-        git tag -a "v${{ github.event.inputs.version }}" -m "Release v${{ github.event.inputs.version }}"
+        git commit -m "Bump version to $version" || exit 0
+        git tag -a "v$version" -m "Release v$version"
         git push origin HEAD:${{ github.ref }}
-        git push origin "v${{ github.event.inputs.version }}"
+        git push origin "v$version"
         
-    - name: Create GitHub Release
+    - name: Create GitHub Release (publish mode)
+      if: ${{ github.event.inputs.mode == 'publish' }}
       uses: softprops/action-gh-release@v1
       with:
         tag_name: v${{ github.event.inputs.version }}
@@ -86,7 +117,7 @@ jobs:
         body: |
           ## aria2c-browse v${{ github.event.inputs.version }}
           
-          ${{ github.event.inputs.release_notes }}
+          ${{ github.event.inputs.description }}
           
           ### Downloads
           - Windows x64: `aria2c-browse-${{ github.event.inputs.version }}-windows-x64.zip`
